@@ -1,32 +1,30 @@
-// features/categories/CategoryPage.tsx
 import { useState, useCallback, useMemo } from "react";
-import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 import { PlusIcon } from "lucide-react";
-import { toast } from "sonner";
 
 // Hooks
 import { usePagination } from "@/hooks/usePagination";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
-  useCategories,
-  useCreateCategory,
-  useUpdateCategory,
-  useDeleteCategory,
-} from "@/hooks/Categoryies/useCategory";
+  useSubCategories,
+  useCreateSubCategory,
+  useUpdateSubCategory,
+  useDeleteSubCategory,
+} from "@/hooks/Categoryies/useSubCategory";
+import { useCategories } from "@/hooks/Categoryies/useCategory";
 
 // Core Components
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/common/DataTable";
 import { PaginationControls } from "@/components/common/PaginationControls";
+import { DeleteConfirm } from "@/components/DeleteConfirm";
 
 // Feature Components & Domain Types
-import { getColumns } from "@/pages/category/columns";
-import { CategoryFilterBar } from "@/pages/category/CategoryFilterBar";
-import { CategoryFormDialog } from "@/pages/category/CategoryFormDialog";
-import { DeleteConfirm } from "@/components/DeleteConfirm";
-import type { ICategory, CategoryForm } from "@/types/Category.type";
+import { getColumns } from "@/pages/categories/subCategory/columns";
+import { SubCategoryFilterBar } from "@/pages/categories/subCategory/SubCategoryFilterBar";
+import { SubCategoryFormDialog } from "@/pages/categories/subCategory/SubCategoryFormDialog";
+import type { ISubCategory, SubCategoryForm } from "@/types/SubCategory.type";
 
-export default function CategoryPage() {
+export default function SubCategoryPage() {
   // ── Pagination Framework ──────────────────────────────────────────────────
   const {
     page,
@@ -42,34 +40,40 @@ export default function CategoryPage() {
   // ── Reactive Searching & Filter States ────────────────────────────────────
   const [searchName, setSearchName] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const debouncedName = useDebounce(searchName, 400);
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const debouncedSearch = useDebounce(searchName, 400);
 
   // Memoized payload criteria to limit query triggers
   const filter = useMemo(
     () => ({
       page,
       size,
-      ...(debouncedName && { name: debouncedName }),
+      ...(debouncedSearch && { name: debouncedSearch }),
       ...(statusFilter !== "ALL" && { status: statusFilter }),
+      ...(categoryFilter !== "ALL" && { categoryId: Number(categoryFilter) }),
     }),
-    [page, size, debouncedName, statusFilter],
+    [page, size, debouncedSearch, statusFilter, categoryFilter],
   );
 
   // ── Queries & Async State Management ──────────────────────────────────────
-  const { data, isLoading, isFetching } = useCategories(filter);
-  const categories = useMemo(() => data?.payload?.data ?? [], [data]);
+  const { data, isLoading } = useSubCategories(filter);
+  const subCategories = useMemo(() => data?.payload?.data ?? [], [data]);
   const pagination = data?.payload?.content;
 
-  const createMut = useCreateCategory();
-  const updateMut = useUpdateCategory();
-  const deleteMut = useDeleteCategory();
+  // Fetch all categories for filter and form choice
+  const { data: categoriesData } = useCategories({ size: 1000 });
+  const categories = useMemo(() => categoriesData?.payload?.data ?? [], [categoriesData]);
+
+  const createMut = useCreateSubCategory();
+  const updateMut = useUpdateSubCategory();
+  const deleteMut = useDeleteSubCategory();
 
   // ── Presentation Overlay States (Dialogs) ─────────────────────────────────
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
-  const [editingItem, setEditingItem] = useState<ICategory | null>(null);
-  const [deletingItem, setDeletingItem] = useState<ICategory | null>(null);
+  const [editingItem, setEditingItem] = useState<ISubCategory | null>(null);
+  const [deletingItem, setDeletingItem] = useState<ISubCategory | null>(null);
 
   // ── Actions & Context Callbacks ───────────────────────────────────────────
   const openCreate = () => {
@@ -78,36 +82,32 @@ export default function CategoryPage() {
     setFormOpen(true);
   };
 
-  const openEdit = useCallback((cat: ICategory) => {
+  const openEdit = useCallback((sub: ISubCategory) => {
     setFormMode("edit");
-    setEditingItem(cat);
+    setEditingItem(sub);
     setFormOpen(true);
   }, []);
 
-  const openDelete = useCallback((cat: ICategory) => {
-    setDeletingItem(cat);
+  const openDelete = useCallback((sub: ISubCategory) => {
+    setDeletingItem(sub);
     setDeleteOpen(true);
   }, []);
 
   // ── Core Mutation Submissions ──────────────────────────────────────────────
-  const handleFormSubmit = (formData: CategoryForm) => {
+  const handleFormSubmit = (formData: SubCategoryForm) => {
     if (formMode === "create") {
       createMut.mutate(formData, {
         onSuccess: () => {
-          toast.success("Category created successfully");
           setFormOpen(false);
         },
-        onError: () => toast.error("Failed to create category"),
       });
     } else if (editingItem) {
       updateMut.mutate(
         { id: editingItem.id, data: formData },
         {
           onSuccess: () => {
-            toast.success("Category updated successfully");
             setFormOpen(false);
           },
-          onError: () => toast.error("Failed to update category"),
         },
       );
     }
@@ -117,12 +117,17 @@ export default function CategoryPage() {
     if (!deletingItem) return;
     deleteMut.mutate(deletingItem.id, {
       onSuccess: () => {
-        toast.success("Category deleted successfully");
         setDeleteOpen(false);
         setDeletingItem(null);
       },
-      onError: () => toast.error("Failed to delete category"),
     });
+  };
+
+  const handleResetFilters = () => {
+    setSearchName("");
+    setStatusFilter("ALL");
+    setCategoryFilter("ALL");
+    resetPage();
   };
 
   // ── Columns Configurations ────────────────────────────────────────────────
@@ -131,37 +136,28 @@ export default function CategoryPage() {
     [openEdit, openDelete],
   );
 
-  const table = useReactTable({
-    data: categories,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    manualPagination: true,
-    pageCount: pagination?.totalPages ?? -1,
-    state: {
-      pagination: { pageIndex: page, pageSize: size },
-    },
-  });
-
   return (
     <div className="flex flex-col gap-6 px-4 py-6 lg:px-6">
       {/* ── Heading Header Module ── */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Categories</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Subcategories</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your product categories
+            Manage your product subcategories and their connections to main categories.
           </p>
         </div>
         <Button onClick={openCreate} className="w-fit">
           <PlusIcon className="mr-2 size-4" />
-          Add Category
+          Add Subcategory
         </Button>
       </div>
 
       {/* ── Query/Filter Interactive Form Controls ── */}
-      <CategoryFilterBar
+      <SubCategoryFilterBar
         search={searchName}
         status={statusFilter}
+        categoryId={categoryFilter}
+        categories={categories}
         onSearchChange={(value) => {
           setSearchName(value);
           resetPage();
@@ -170,15 +166,18 @@ export default function CategoryPage() {
           setStatusFilter(value);
           resetPage();
         }}
+        onCategoryChange={(value) => {
+          setCategoryFilter(value);
+          resetPage();
+        }}
+        onReset={handleResetFilters}
       />
 
       {/* ── Tabular Matrix Layout View ── */}
       <DataTable
-        data={categories}
+        data={subCategories}
         columns={columns}
         loading={isLoading}
-        isFetching={isFetching}
-        tableInstance={table}
       />
 
       {/* ── Dynamic Pagination Controller Context ── */}
@@ -196,10 +195,11 @@ export default function CategoryPage() {
       )}
 
       {/* ── Form Dialog Overlay ── */}
-      <CategoryFormDialog
+      <SubCategoryFormDialog
         open={formOpen}
         mode={formMode}
-        category={editingItem}
+        subCategory={editingItem}
+        categories={categories}
         loading={createMut.isPending || updateMut.isPending}
         onSubmit={handleFormSubmit}
         onClose={() => setFormOpen(false)}
@@ -209,13 +209,14 @@ export default function CategoryPage() {
       <DeleteConfirm
         open={deleteOpen}
         item={deletingItem}
-        entityLabel="Category"
+        entityLabel="Subcategory"
         meta={
           deletingItem
             ? [
-                { label: "ID", value: String(deletingItem.id) },
-                { label: "Status", value: deletingItem.status },
-              ]
+              { label: "Code", value: deletingItem.code },
+              { label: "Category", value: deletingItem.categoryName || "—" },
+              { label: "Status", value: deletingItem.status },
+            ]
             : []
         }
         loading={deleteMut.isPending}

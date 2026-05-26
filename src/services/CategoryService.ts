@@ -4,8 +4,7 @@ import type { ApiResponse } from "@/utils/Pagination";
 
 export const CategoryService = {
   getAll: (filter: CategoryFilter = {}): Promise<ApiResponse<ICategory[]>> =>
-    api
-      .get("category", {
+    api.get("category", {
         params: {
           page: filter.page,
           size: filter.size,

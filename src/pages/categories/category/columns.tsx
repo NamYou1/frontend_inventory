@@ -53,7 +53,8 @@ export function getColumns({
     },
     {
       id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
+      accessorKey : "Actions",
+      header: "Actions",      
       cell: ({ row }) => {
         const category = row.original;
         return (

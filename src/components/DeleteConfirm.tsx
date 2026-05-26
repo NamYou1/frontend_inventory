@@ -14,7 +14,7 @@ import {
 // T must have at least a `name` field so we can display what is being deleted.
 // Any extra fields you pass in `meta` will show as detail rows.
 
-export interface DeleteConfirmProps<T extends { name: string }> {
+export interface DeleteConfirmProps<T> {
   open: boolean;
   item: T | null;                            // the record to delete
   entityLabel?: string;                      // e.g. "Category", "Product", "User"
@@ -27,7 +27,7 @@ export interface DeleteConfirmProps<T extends { name: string }> {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function DeleteConfirm<T extends { name: string }>({
+export function DeleteConfirm<T>({
   open,
   item,
   entityLabel = "Item",
@@ -37,11 +37,15 @@ export function DeleteConfirm<T extends { name: string }>({
   onConfirm,
   onCancel,
 }: DeleteConfirmProps<T>) {
+  const displayName = item
+    ? ((item as any).name || (item as any).referenceNo || (item as any).username || entityLabel)
+    : entityLabel;
+
   const defaultDescription = (
     <>
       You are about to permanently delete{" "}
       <span className="font-semibold text-slate-700">
-        &quot;{item?.name ?? entityLabel}&quot;
+        &quot;{displayName}&quot;
       </span>
       . This action{" "}
       <span className="font-semibold text-rose-500">cannot be undone</span>.

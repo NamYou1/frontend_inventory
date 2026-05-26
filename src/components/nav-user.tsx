@@ -19,6 +19,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
+import api from "@/api/axios"
+import { clearAuth, getRefreshToken } from "@/utils/auth"
+import { useTranslation } from "react-i18next"
 
 export function NavUser({
   user,
@@ -29,7 +32,22 @@ export function NavUser({
     avatar: string
   }
 }) {
+  const { t } = useTranslation();
   const { isMobile } = useSidebar()
+
+  const handleLogout = async () => {
+    try {
+      const refreshToken = getRefreshToken();
+      if (refreshToken) {
+        await api.post("auth/logout", { refreshToken }, { skipToast: true });
+      }
+    } catch (e) {
+      console.error("Backend logout failed", e);
+    } finally {
+      clearAuth();
+      window.location.href = "/login";
+    }
+  };
 
   return (
     <SidebarMenu>
@@ -78,24 +96,23 @@ export function NavUser({
               <DropdownMenuItem>
                 <CircleUserRoundIcon
                 />
-                Account
+                {t('account')}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <CreditCardIcon
                 />
-                Billing
+                {t('billing')}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <BellIcon
                 />
-                Notifications
+                {t('notifications')}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOutIcon
-              />
-              Log out
+            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:bg-destructive/10">
+              <LogOutIcon />
+              {t('logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
